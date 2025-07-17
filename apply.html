@@ -1,7 +1,18 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8" />
   <title>Apply - CollabSpace</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- ✅ Fixed CSP Meta -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self' https://www.gstatic.com https://firebase.googleapis.com https://*.firebaseio.com;
+                 img-src 'self' https://images.unsplash.com;
+                 script-src 'self' 'unsafe-inline' https://www.gstatic.com https://www.googleapis.com https://firebase.googleapis.com;
+                 style-src 'self' 'unsafe-inline';">
+  <meta name="referrer" content="no-referrer" />
+
   <style>
     body {
       margin: 0;
@@ -16,9 +27,6 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      position: sticky;
-      top: 0;
-      z-index: 1000;
     }
     .navbar a {
       color: white;
@@ -87,7 +95,6 @@
 </head>
 <body>
 
-  <!-- ✅ Navbar with History & Logout -->
   <div class="navbar">
     <div><strong>🌟 CollabSpace</strong></div>
     <div>
@@ -116,21 +123,23 @@
     <div id="projectList"></div>
   </div>
 
-  <!-- Apply Modal -->
+  <!-- ✅ Apply Modal -->
   <div id="applyModal">
     <div class="modal-box">
       <span onclick="closeModal()">×</span>
       <h3>Apply to Project</h3>
-      <label>Select Role</label>
-      <select id="selectedRole"></select>
-      <input id="applicantName" placeholder="Your name">
-      <input id="applicantEmail" placeholder="Your email">
-      <textarea id="applicationMessage" placeholder="Message (optional)"></textarea>
-      <button class="btn" onclick="submitApplication()">Submit Application</button>
+      <form onsubmit="event.preventDefault(); submitApplication();">
+        <label>Select Role</label>
+        <select id="selectedRole" required></select>
+        <input id="applicantName" name="name" type="text" placeholder="Your name" required>
+        <input id="applicantEmail" name="email" type="email" placeholder="Your email" required>
+        <textarea id="applicationMessage" placeholder="Message (optional)"></textarea>
+        <button class="btn" type="submit">Submit Application</button>
+      </form>
     </div>
   </div>
 
-  <!-- Firebase SDKs -->
+  <!-- ✅ Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
