@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>CollabSpace - Interview Panel</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 0;
+      background: url('https://images.unsplash.com/photo-1519389950473-47ba0277781c') no-repeat center center fixed;
+      background-size: cover;
+    }
+    .navbar {
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
+      padding: 15px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+    .navbar a {
+      color: white;
+      text-decoration: none;
+      margin-left: 20px;
+      font-weight: 500;
+    }
+    .glass-box {
+      max-width: 1000px;
+      margin: 50px auto;
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(10px);
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.15);
+    }
+    .project-card {
+      background: white;
+      padding: 20px;
+      margin-bottom: 25px;
+      border-radius: 10px;
+      box-shadow: 0 0 6px rgba(0,0,0,0.1);
+    }
+    .applicant {
+      background: #f9f9f9;
+      padding: 10px;
+      margin-top: 12px;
+      border-radius: 8px;
+    }
+    button {
+      padding: 6px 10px;
+      margin: 6px 6px 0 0;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .accept { background: #28a745; color: white; }
+    .reject { background: #dc3545; color: white; }
+    .interview { background: #007bff; color: white; }
+
+    #interviewModal {
+      display: none;
+      position: fixed;
+      top: 15%;
+      left: 50%;
+      transform: translate(-50%, 0);
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+      z-index: 1000;
+      width: 320px;
+    }
+    #interviewModal input {
+      width: 100%;
+      padding: 8px;
+      margin: 8px 0;
+      font-size: 15px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="navbar">
+    <div><strong>🌟 CollabSpace</strong></div>
+    <div>
+      <a href="index.html">Home</a>
+      <a href="post-idea.html">Post Idea</a>
+      <a href="apply.html">Apply</a>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="chat.html">Chat</a>
+      <a href="history.html">History</a>
+      <a href="#" onclick="logout()">Logout</a>
+    </div>
+  </div>
+
+  <div class="glass-box" id="interviewPanel">Loading...</div>
+
+  <div id="interviewModal">
+    <h3>📅 Schedule Interview</h3>
+    <input type="date" id="interviewDate">
+    <input type="time" id="interviewTime">
+    <input type="text" id="meetingLink" placeholder="Meeting Link">
+    <button onclick="sendInvite()">Send Invite</button>
+    <button onclick="closeModal()">Cancel</button>
+  </div>
+
+  <!-- Firebase & EmailJS -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+
+  <script>
+    emailjs.init('I6b_PKaXN5hXSpHXz'); // ✅ Your Public EmailJS Key
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBbTWt0dpw7w6mFJB2yF0olTCh2mBDwbn8",
+      authDomain: "collabspace-6d0af.firebaseapp.com",
+      projectId: "collabspace-6d0af"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    let selectedApp = null;
+    let selectedDetails = {};
+
+    const panel = document.getElementById("interviewPanel");
+
+    firebase.auth().onAuthStateChanged(async (user) => {
+      if (!user) {
+        alert("Please log in to access this page.");
+        window.location.href = "login.html";
+        return;
+      }
+
+      const email = user.email;
+      localStorage.setItem("email", email); // for reuse
+
+      const ideaSnap = await db.collection("ideas").where("email", "==", email).get();
+      panel.innerHTML = "";
+
+      if (ideaSnap.empty) {
+        panel.innerHTML = "<p>No projects found.</p>";
+        return;
+      }
+
+      for (const doc of ideaSnap.docs) {
+        const idea = doc.data();
+        const ideaId = doc.id;
+
+        const appsSnap = await db.collection("applications").where("projectId", "==", ideaId).get();
+
+        if (!appsSnap.empty) {
+          const div = document.createElement("div");
+          div.className = "project-card";
+          div.innerHTML = `<h3>${idea.title}</h3><p>${idea.description}</p><h4>Applicants:</h4>`;
+
+          appsSnap.forEach(appDoc => {
+            const app = appDoc.data();
+            const appId = appDoc.id;
+            const role = app.role || "N/A";
+            const status = app.status || "Pending";
+            const interviewTime = app.interviewDate || null;
+            const link = app.interviewLink || "#";
+
+            let controls = "";
+
+            if (status === "Pending" && !interviewTime) {
+              controls = `
+                <button class="interview" onclick="openModal('${appId}', '${app.name}', '${app.email}', '${idea.title}')">Interview</button>
+                <button class="accept" onclick="updateStatus('${appId}', '${ideaId}', '${role}', '${app.name}', '${app.email}', '${idea.title}', 'Accepted')">Accept</button>
+                <button class="reject" onclick="updateStatus('${appId}', '${ideaId}', '${role}', '${app.name}', '${app.email}', '${idea.title}', 'Rejected')">Reject</button>`;
+            } else if (interviewTime && status === "Pending") {
+              controls = `
+                <p><strong>Interview:</strong> ${interviewTime}</p>
+                <a href="${link}" target="_blank">Join</a><br>
+                <button class="accept" onclick="updateStatus('${appId}', '${ideaId}', '${role}', '${app.name}', '${app.email}', '${idea.title}', 'Accepted')">Accept</button>
+                <button class="reject" onclick="updateStatus('${appId}', '${ideaId}', '${role}', '${app.name}', '${app.email}', '${idea.title}', 'Rejected')">Reject</button>`;
+            } else {
+              controls = `<p><strong>Status:</strong> ${status}</p>`;
+            }
+
+            div.innerHTML += `
+              <div class="applicant">
+                <strong>${app.name}</strong> (${app.email})<br>
+                Role: <strong>${role}</strong><br>
+                ${controls}
+              </div>`;
+          });
+
+          panel.appendChild(div);
+        }
+      }
+    });
+
+    function openModal(appId, name, email, project) {
+      selectedApp = appId;
+      selectedDetails = { name, email, project };
+      document.getElementById("interviewModal").style.display = "block";
+    }
+
+    function closeModal() {
+      document.getElementById("interviewModal").style.display = "none";
+    }
+
+    async function sendInvite() {
+      const date = document.getElementById("interviewDate").value;
+      const time = document.getElementById("interviewTime").value;
+      const link = document.getElementById("meetingLink").value;
+
+      if (!date || !time || !link) {
+        alert("Please fill all interview details.");
+        return;
+      }
+
+      const interviewDateTime = `${date} ${time}`;
+
+      await db.collection("applications").doc(selectedApp).update({
+        interviewDate: interviewDateTime,
+        interviewLink: link
+      });
+
+      // Email to candidate
+      emailjs.send("service_o056zsl", "template_cj4rr9m", {
+        name: selectedDetails.name,
+        email: selectedDetails.email,
+        project_title: selectedDetails.project,
+        interview_date: date,
+        interview_time: time,
+        meeting_link: link
+      }).then(() => {
+        alert("✅ Interview invite sent!");
+        closeModal();
+        location.reload();
+      }).catch(err => {
+        console.error("❌ Email error:", err);
+        alert("Failed to send email.");
+      });
+    }
+
+    async function updateStatus(appId, ideaId, role, name, email, project, status) {
+      await db.collection("applications").doc(appId).update({ status });
+
+      if (status === "Accepted") {
+        const ideaRef = db.collection("ideas").doc(ideaId);
+        const snap = await ideaRef.get();
+        const data = snap.data();
+        if (data.roles && data.roles[role] > 0) {
+          data.roles[role] -= 1;
+          await ideaRef.update({ roles: data.roles });
+        }
+      }
+
+      emailjs.send("default_service", "template_f8p4rys", {
+        name,
+        email,
+        status,
+        message: status === "Accepted" 
+          ? "🎉 You have been selected to join the project!" 
+          : "🙏 Thank you for applying. You were not selected this time.",
+        project
+      });
+
+      location.reload();
+    }
+
+    function logout() {
+      firebase.auth().signOut().then(() => {
+        localStorage.clear();
+        window.location.href = "login.html";
+      });
+    }
+  </script>
+</body>
+</html>

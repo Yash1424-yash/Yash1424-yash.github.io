@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>CollabSpace Chat</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      background: url('https://images.unsplash.com/photo-1521791136064-7986c2920216') no-repeat center center fixed;
+      background-size: cover;
+    }
+
+    .navbar {
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
+      padding: 15px 20px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .navbar a {
+      color: white;
+      text-decoration: none;
+      margin-left: 20px;
+      font-weight: 500;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 30px auto;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+    }
+
+    select, input {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 15px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+    }
+
+    #chatBox {
+      height: 400px;
+      overflow-y: auto;
+      border: 1px solid #ccc;
+      padding: 10px;
+      border-radius: 6px;
+      background: #f9f9f9;
+      margin-bottom: 10px;
+    }
+
+    .message {
+      margin: 10px 0;
+    }
+
+    .message strong {
+      color: #007bff;
+    }
+
+    .input-group {
+      display: flex;
+      gap: 10px;
+    }
+
+    #messageInput {
+      flex: 1;
+    }
+
+    #sendButton {
+      padding: 10px 20px;
+      font-size: 16px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .typing {
+      font-style: italic;
+      font-size: 14px;
+      color: gray;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<div class="navbar">
+  <div><strong>🌟 CollabSpace</strong></div>
+  <div>
+    <a href="index.html">Home</a>
+    <a href="post-idea.html">Post Idea</a>
+    <a href="apply.html">Apply</a>
+    <a href="dashboard.html">Dashboard</a>
+    <a href="chat.html">Chat</a>
+    <a href="#" onclick="logout()">Logout</a>
+  </div>
+</div>
+
+<!-- Main Container -->
+<div class="container">
+  <h2>💬 Project Chat Room</h2>
+
+  <select id="projectSelect">
+    <option disabled selected>Loading your projects...</option>
+  </select>
+
+  <div id="chatBox"></div>
+  <div id="typingIndicator" class="typing"></div>
+
+  <div class="input-group">
+    <input type="text" id="messageInput" placeholder="Type a message..." />
+    <button id="sendButton">Send</button>
+  </div>
+</div>
+
+<!-- Firebase v8 SDKs -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyBbTWt0dpw7w6mFJB2yF0olTCh2mBDwbn8",
+    authDomain: "collabspace-6d0af.firebaseapp.com",
+    projectId: "collabspace-6d0af",
+    storageBucket: "collabspace-6d0af.appspot.com",
+    messagingSenderId: "19918134739",
+    appId: "1:19918134739:web:3c3e2046024466dd2ea326"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+
+  let currentUser, username = "", email = "";
+
+  firebase.auth().onAuthStateChanged(user => {
+    if (user) {
+      currentUser = user;
+      email = user.email;
+      username = user.displayName || localStorage.getItem("username") || "User";
+      loadUserProjects();
+    } else {
+      alert("Please login first.");
+      window.location.href = "login.html";
+    }
+  });
+
+  const projectSelect = document.getElementById("projectSelect");
+  const chatBox = document.getElementById("chatBox");
+  const messageInput = document.getElementById("messageInput");
+  const sendButton = document.getElementById("sendButton");
+  const typingIndicator = document.getElementById("typingIndicator");
+
+  let unsubscribeMessages = null;
+
+  async function loadUserProjects() {
+    const posted = await db.collection("ideas").where("email", "==", email).get();
+    const joined = await db.collection("applications").where("email", "==", email).where("status", "==", "Accepted").get();
+
+    const projectIds = new Set();
+    posted.forEach(doc => projectIds.add(doc.id));
+    joined.forEach(doc => projectIds.add(doc.data().projectId));
+
+    if (projectIds.size === 0) {
+      projectSelect.innerHTML = `<option disabled selected>No projects yet.</option>`;
+      return;
+    }
+
+    projectSelect.innerHTML = `<option disabled selected>Select a Project</option>`;
+
+    for (const id of projectIds) {
+      const doc = await db.collection("ideas").doc(id).get();
+      if (doc.exists) {
+        const option = document.createElement("option");
+        option.value = id;
+        option.textContent = doc.data().title;
+        projectSelect.appendChild(option);
+      }
+    }
+  }
+
+  function loadMessages(projectId) {
+    if (unsubscribeMessages) unsubscribeMessages();
+
+    unsubscribeMessages = db.collection("chats").doc(projectId).collection("messages").orderBy("timestamp").onSnapshot(snapshot => {
+      chatBox.innerHTML = "";
+      snapshot.forEach(doc => {
+        const msg = doc.data();
+        const time = msg.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || "⏳";
+        chatBox.innerHTML += `
+          <div class="message">
+            <strong>${msg.name}</strong> <span style="font-size: 12px; color: gray;">[${time}]</span>: ${msg.text}
+          </div>
+        `;
+      });
+      chatBox.scrollTop = chatBox.scrollHeight;
+    });
+  }
+
+  function sendMessage() {
+    const text = messageInput.value.trim();
+    const projectId = projectSelect.value;
+    if (!text || !projectId) return;
+
+    db.collection("chats").doc(projectId).collection("messages").add({
+      name: username,
+      text,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    messageInput.value = "";
+  }
+
+  let typingTimeout;
+  messageInput.addEventListener("input", () => {
+    typingIndicator.textContent = `${username} is typing...`;
+    clearTimeout(typingTimeout);
+    typingTimeout = setTimeout(() => typingIndicator.textContent = "", 1000);
+  });
+
+  sendButton.addEventListener("click", sendMessage);
+
+  messageInput.addEventListener("keypress", function (e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  projectSelect.addEventListener("change", () => {
+    loadMessages(projectSelect.value);
+  });
+
+  function logout() {
+    firebase.auth().signOut().then(() => {
+      localStorage.clear();
+      window.location.href = "login.html";
+    });
+  }
+</script>
+
+</body>
+</html>

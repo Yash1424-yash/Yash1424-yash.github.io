@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Post Your Idea - CollabSpace</title>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: 'Segoe UI', sans-serif;
+      background: url('https://images.unsplash.com/photo-1504384308090-c894fdcc538d') no-repeat center center fixed;
+      background-size: cover;
+    }
+
+    .overlay {
+      background-color: rgba(0, 0, 0, 0.6);
+      min-height: 100vh;
+      width: 100%;
+      padding-top: 80px;
+    }
+
+    .navbar {
+      background-color: rgba(0, 0, 0, 0.4);
+      color: white;
+      padding: 15px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: fixed;
+      top: 0;
+      width: 100%;
+      z-index: 1000;
+      backdrop-filter: blur(8px);
+    }
+
+    .navbar a {
+      color: white;
+      text-decoration: none;
+      margin-left: 20px;
+      font-weight: bold;
+    }
+
+    .container {
+      max-width: 700px;
+      margin: 30px auto;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(12px);
+      color: white;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0 20px;
+      border-radius: 6px;
+      border: none;
+      font-size: 16px;
+      background: rgba(255,255,255,0.2);
+      color: white;
+    }
+
+    input::placeholder, textarea::placeholder {
+      color: #ddd;
+    }
+
+    button {
+      padding: 10px 16px;
+      font-size: 16px;
+      margin: 5px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .add-role-btn {
+      background-color: #28a745;
+      color: white;
+    }
+
+    .remove-role-btn {
+      background-color: #dc3545;
+      color: white;
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 12px;
+      font-size: 18px;
+      background: #007bff;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+
+    .role-entry {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .role-entry span {
+      flex: 1;
+    }
+
+    label {
+      font-weight: bold;
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .terms {
+      font-size: 14px;
+      margin-top: 10px;
+      color: #f0f0f0;
+    }
+
+    .terms input {
+      width: auto;
+      margin-right: 8px;
+    }
+
+    .terms a {
+      color: #00ccff;
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+<div class="overlay">
+  <div class="navbar">
+    <div><strong>🌟 CollabSpace</strong></div>
+    <div>
+      <a href="index.html">Home</a>
+      <a href="post-idea.html">Post Idea</a>
+      <a href="apply.html">Apply</a>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="chat.html">Chat</a>
+      <a href="#" onclick="logout()">Logout</a>
+    </div>
+  </div>
+
+  <div class="container">
+    <h2>💡 Post Your Project Idea</h2>
+    <form id="ideaForm">
+      <label for="title">Project Title:</label>
+      <input type="text" id="title" required placeholder="Enter project title">
+
+      <label for="description">Description:</label>
+      <textarea id="description" rows="4" required placeholder="Brief project summary"></textarea>
+
+      <label for="members">Total Team Members Needed:</label>
+      <input type="number" id="members" required placeholder="e.g., 5">
+
+      <label>Roles Needed:</label>
+      <div id="rolesContainer"></div>
+
+      <label for="customRole">Add Custom Role:</label>
+      <input type="text" id="customRole" placeholder="e.g., AI Researcher">
+      <button type="button" onclick="addCustomRole()">➕ Add Custom Role</button>
+
+      <div class="terms">
+        <label>
+          <input type="checkbox" id="agreeTerms" required>
+          I agree to the <a href="terms.html" target="_blank">terms and conditions</a>, including granting 10% project equity to CollabSpace for hosting and support.
+        </label>
+      </div>
+
+      <button class="submit-btn" type="submit">🚀 Submit Idea</button>
+    </form>
+  </div>
+</div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyBbTWt0dpw7w6mFJB2yF0olTCh2mBDwbn8",
+    authDomain: "collabspace-6d0af.firebaseapp.com",
+    projectId: "collabspace-6d0af"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  const auth = firebase.auth();
+
+  let currentUser = null;
+
+  auth.onAuthStateChanged(user => {
+    if (!user) {
+      window.location.href = "login.html";
+    } else {
+      currentUser = user;
+    }
+  });
+
+  const rolesData = {};
+  let totalTeamSize = 0;
+
+  const predefinedRoles = [
+    "Frontend Developer", "Backend Developer", "UI/UX Designer",
+    "Tester", "Content Writer", "Marketing"
+  ];
+
+  predefinedRoles.forEach(role => rolesData[role] = 0);
+
+  function renderRoles() {
+    const container = document.getElementById('rolesContainer');
+    container.innerHTML = '';
+    let currentTotal = getTotalRoleCount();
+
+    for (let role in rolesData) {
+      const count = rolesData[role];
+      const disablePlus = currentTotal >= totalTeamSize;
+
+      container.innerHTML += `
+        <div class="role-entry">
+          <span>${role}</span>
+          <button class="add-role-btn" type="button" onclick="changeRoleCount('${role}', 1)" ${disablePlus ? 'disabled' : ''}>+</button>
+          <span>${count}</span>
+          <button class="remove-role-btn" type="button" onclick="changeRoleCount('${role}', -1)">−</button>
+        </div>
+      `;
+    }
+  }
+
+  function changeRoleCount(role, delta) {
+    if (!rolesData[role]) rolesData[role] = 0;
+    const newCount = rolesData[role] + delta;
+    const currentTotal = getTotalRoleCount();
+    if (delta > 0 && currentTotal >= totalTeamSize) return;
+    if (newCount < 0) return;
+    rolesData[role] = newCount;
+    if (newCount === 0) delete rolesData[role];
+    renderRoles();
+  }
+
+  function getTotalRoleCount() {
+    return Object.values(rolesData).reduce((sum, val) => sum + val, 0);
+  }
+
+  function addCustomRole() {
+    const input = document.getElementById('customRole');
+    const role = input.value.trim();
+    if (role && !rolesData[role]) {
+      rolesData[role] = 0;
+      renderRoles();
+    }
+    input.value = '';
+  }
+
+  document.getElementById("members").addEventListener("input", function () {
+    totalTeamSize = parseInt(this.value) || 0;
+    renderRoles();
+  });
+
+  document.getElementById("ideaForm").addEventListener("submit", async function (e) {
+    e.preventDefault();
+
+    const title = document.getElementById("title").value;
+    const description = document.getElementById("description").value;
+    totalTeamSize = parseInt(document.getElementById("members").value);
+
+    if (!document.getElementById("agreeTerms").checked) {
+      alert("❌ You must agree to the terms and conditions to post a project.");
+      return;
+    }
+
+    if (getTotalRoleCount() !== totalTeamSize) {
+      alert("⚠️ Please assign exactly " + totalTeamSize + " team members to roles.");
+      return;
+    }
+
+    try {
+      await db.collection("ideas").add({
+        title,
+        description,
+        members: totalTeamSize,
+        roles: rolesData,
+        email: currentUser.email,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      alert("🎉 Idea submitted successfully!");
+      this.reset();
+      for (let key in rolesData) delete rolesData[key];
+      predefinedRoles.forEach(role => rolesData[role] = 0);
+      totalTeamSize = 0;
+      renderRoles();
+    } catch (err) {
+      console.error("Error submitting idea:", err);
+      alert("❌ Failed to submit.");
+    }
+  });
+
+  function logout() {
+    auth.signOut().then(() => {
+      window.location.href = "login.html";
+    });
+  }
+
+  renderRoles();
+</script>
+</body>
+</html>

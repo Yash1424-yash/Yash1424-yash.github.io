@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CollabSpace - Home</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: url('https://images.unsplash.com/photo-1504384308090-c894fdcc538d') no-repeat center center fixed;
+      background-size: cover;
+    }
+
+    .navbar {
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
+      padding: 15px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+
+    .navbar a {
+      color: white;
+      text-decoration: none;
+      margin-left: 20px;
+      font-weight: 500;
+    }
+
+    .container {
+      max-width: 800px;
+      height: 400px;
+      margin: 80px auto;
+      background: rgba(255, 255, 255, 0.75);
+      backdrop-filter: blur(10px);
+      padding: 40px;
+      border-radius: 16px;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    h1 {
+      font-size: 36px;
+      color: #222;
+      margin-bottom: 15px;
+    }
+
+    p {
+      font-size: 18px;
+      color: #444;
+      margin-bottom: 40px;
+    }
+
+    .btn {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      margin: 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background 0.3s;
+    }
+
+    .btn:hover {
+      background: #0056b3;
+    }
+
+    .btn-group {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .creator-btn {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  padding: 12px 28px;
+  background: transparent;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  text-decoration: none;
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(255, 255, 255, 0.1),
+              inset 0 0 20px rgba(255, 255, 255, 0.05),
+              0 4px 10px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  transition: all 0.3s ease;
+  z-index: 1000;
+}
+.creator-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 25px rgba(255, 255, 255, 0.2),
+              inset 0 0 30px rgba(255, 255, 255, 0.1),
+              0 6px 15px rgba(0, 0, 0, 0.7);
+  color: #ff5e5e;
+}
+
+  </style>
+</head>
+<body>
+<a href="creator-info.html" class="creator-btn">Creator Info</a>
+  <!-- ✅ Navbar -->
+  <div class="navbar">
+    <div><strong>🌟 CollabSpace</strong></div>
+    <div>
+      <a href="index.html">Home</a>
+      <a href="post-idea.html">Post Idea</a>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="apply.html">Apply</a>
+      <a href="chat.html">Chat</a>
+      <a href="interview.html">Interview</a>
+      <a href="history.html">History</a>
+      <a href="#" onclick="logout()">Logout</a>
+    </div>
+  </div>
+
+  <!-- ✅ Main Content -->
+  <div class="container">
+    <h1>Welcome to CollabSpace 👋</h1>
+    <p>Your one-stop platform to share ideas, find collaborators, and build amazing projects together!</p>
+    <div class="btn-group">
+      <button class="btn" onclick="window.location.href='post-idea.html'">🚀 Post a New Idea</button>
+      <button class="btn" onclick="window.location.href='apply.html'">🔍 Apply to a Project</button>
+    </div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+
+  <!-- Firebase Config -->
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBbTWt0dpw7w6mFJB2yF0olTCh2mBDwbn8",
+      authDomain: "collabspace-6d0af.firebaseapp.com",
+      projectId: "collabspace-6d0af"
+    };
+    firebase.initializeApp(firebaseConfig);
+
+    // ✅ Logout Function
+    function logout() {
+      localStorage.clear();
+      location.href = "login.html";
+    }
+
+    // ✅ Login Check
+    window.onload = () => {
+      const email = localStorage.getItem("email");
+      if (!email) {
+        location.href = "login.html";
+      }
+    };
+  </script>
+
+</body>
+</html>

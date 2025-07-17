@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Project Details - CollabSpace</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      background: url('https://images.unsplash.com/photo-1519389950473-47ba0277781c') no-repeat center center fixed;
+      background-size: cover;
+    }
+    .navbar {
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
+      padding: 15px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .navbar a {
+      color: white;
+      text-decoration: none;
+      margin-left: 20px;
+      font-weight: 500;
+    }
+    .container {
+      max-width: 800px;
+      margin: 40px auto;
+      background: rgba(255, 255, 255, 0.95);
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.2);
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .section {
+      margin-bottom: 30px;
+    }
+    .member, .updates {
+      background: #e9f5ff;
+      padding: 10px;
+      border-radius: 6px;
+      margin-bottom: 10px;
+    }
+    input, textarea {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 12px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 16px;
+    }
+    button {
+      padding: 10px 14px;
+      background: #007bff;
+      color: white;
+      font-size: 15px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    img {
+      max-width: 100%;
+      height: auto;
+      margin-top: 10px;
+      border-radius: 8px;
+    }
+    .completed {
+      color: green;
+      font-weight: bold;
+      margin-bottom: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div class="navbar">
+    <div><strong>🌟 CollabSpace</strong></div>
+    <div>
+      <a href="index.html">Home</a>
+      <a href="post-idea.html">Post Idea</a>
+      <a href="apply.html">Apply</a>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="chat.html">Chat</a>
+      <a href="history.html">History</a>
+    </div>
+  </div>
+
+  <div class="container">
+    <h2>📁 Project Details</h2>
+    <div class="section" id="projectInfo">Loading...</div>
+    <div id="completionStatus" class="completed"></div>
+
+    <div class="section" id="teamSection">
+      <h3>👥 Team Members</h3>
+      <div id="membersList"></div>
+    </div>
+
+    <div class="section" id="creatorSection" style="display:none;">
+      <h3>📝 Post an Update</h3>
+      <textarea id="updateText" placeholder="Write something..."></textarea>
+      <input type="file" id="imageUpload" accept="image/*">
+      <button onclick="postUpdate()">Post Update</button>
+    </div>
+
+    <div class="section" id="completeButtonSection" style="display:none;">
+      <button onclick="markAsCompleted()">✅ Mark Project as Completed</button>
+    </div>
+
+    <div class="section">
+      <h3>📢 Updates</h3>
+      <div id="updatesContainer"></div>
+    </div>
+  </div>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBbTWt0dpw7w6mFJB2yF0olTCh2mBDwbn8",
+      authDomain: "collabspace-6d0af.firebaseapp.com",
+      projectId: "collabspace-6d0af",
+      storageBucket: "collabspace-6d0af.appspot.com",
+      messagingSenderId: "19918134739",
+      appId: "1:19918134739:web:3c3e2046024466dd2ea326"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const storage = firebase.storage();
+
+    const userEmail = localStorage.getItem("email");
+    const username = localStorage.getItem("username");
+    const projectId = new URLSearchParams(window.location.search).get("id");
+
+    if (!userEmail || !username) {
+      alert("🔒 Please login to access project details.");
+      window.location.href = "login.html";
+    }
+
+    if (!projectId) {
+      document.querySelector('.container').innerHTML = "<h2>❌ No project selected.</h2>";
+      throw new Error("No projectId found in URL.");
+    }
+
+    async function loadProject() {
+      const doc = await db.collection("ideas").doc(projectId).get();
+      if (!doc.exists) {
+        document.getElementById("projectInfo").innerHTML = "❌ Project not found.";
+        return;
+      }
+
+      const data = doc.data();
+      const creatorEmail = data.email || "unknown";
+      const isCreator = (creatorEmail === userEmail);
+
+      document.getElementById("projectInfo").innerHTML = `
+        <h3>📌 ${data.title}</h3>
+        <p><strong>Description:</strong> ${data.description}</p>
+        <p><strong>Team Size:</strong> ${data.members}</p>
+        <p><strong>Posted by:</strong> ${creatorEmail}</p>
+      `;
+
+      if (data.completed) {
+        document.getElementById("completionStatus").innerText = "✅ This project is marked as completed.";
+      }
+
+      if (isCreator) {
+        document.getElementById("creatorSection").style.display = "block";
+        document.getElementById("completeButtonSection").style.display = "block";
+      }
+
+      const membersSnap = await db.collection("applications")
+        .where("projectId", "==", projectId)
+        .where("status", "==", "Accepted")
+        .get();
+
+      const list = document.getElementById("membersList");
+      list.innerHTML = "";
+      membersSnap.forEach(doc => {
+        const app = doc.data();
+        list.innerHTML += `<div class="member"><strong>${app.name}</strong><br>Email: ${app.email}<br>Role: ${app.role}</div>`;
+      });
+
+      loadUpdates();
+    }
+
+    async function postUpdate() {
+      const text = document.getElementById("updateText").value.trim();
+      const file = document.getElementById("imageUpload").files[0];
+
+      if (!text && !file) {
+        alert("⚠️ Please enter update text or select an image.");
+        return;
+      }
+
+      let imageUrl = "";
+      if (file) {
+        const ref = storage.ref(`projectUpdates/${projectId}/${Date.now()}_${file.name}`);
+        await ref.put(file);
+        imageUrl = await ref.getDownloadURL();
+      }
+
+      await db.collection("projects").doc(projectId).collection("updates").add({
+        text,
+        imageUrl,
+        createdBy: username,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      document.getElementById("updateText").value = "";
+      document.getElementById("imageUpload").value = "";
+      loadUpdates();
+    }
+
+    async function loadUpdates() {
+      const snap = await db.collection("projects").doc(projectId).collection("updates")
+        .orderBy("createdAt", "desc").get();
+
+      const container = document.getElementById("updatesContainer");
+      container.innerHTML = "";
+
+      snap.forEach(doc => {
+        const up = doc.data();
+        const text = up.text || '';
+        const img = up.imageUrl ? `<img src="${up.imageUrl}" alt="Update Image">` : "";
+        container.innerHTML += `
+          <div class="updates">
+            <p><strong>${up.createdBy}</strong>: ${text}</p>
+            ${img}
+          </div>
+        `;
+      });
+    }
+
+    async function markAsCompleted() {
+      if (confirm("Are you sure you want to mark this project as completed?")) {
+        await db.collection("ideas").doc(projectId).update({ completed: true });
+        alert("🎉 Project marked as completed.");
+        location.reload();
+      }
+    }
+
+    loadProject();
+  </script>
+</body>
+</html>

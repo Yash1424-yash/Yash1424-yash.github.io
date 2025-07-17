@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dashboard - CollabSpace</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: url('https://images.unsplash.com/photo-1522202176988-66273c2fd55f') no-repeat center center fixed;
+      background-size: cover;
+    }
+
+    .navbar {
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
+      padding: 15px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+
+    .navbar a {
+      color: white;
+      text-decoration: none;
+      margin-left: 20px;
+      font-weight: 500;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 50px auto;
+      background: rgba(255, 255, 255, 0.92);
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+    }
+
+    h2 {
+      text-align: center;
+    }
+
+    .project-box {
+      background: #f0f0f0;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 30px;
+    }
+
+    .applicant {
+      background: #fff;
+      padding: 10px;
+      border-radius: 6px;
+      margin: 10px 0;
+      border: 1px solid #ccc;
+    }
+
+    .btn {
+      padding: 6px 12px;
+      margin-right: 10px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .accept {
+      background: #28a745;
+      color: white;
+    }
+
+    .reject {
+      background: #dc3545;
+      color: white;
+    }
+
+    .view {
+      background: #007bff;
+      color: white;
+      margin-top: 10px;
+      display: inline-block;
+      text-decoration: none;
+    }
+
+    .status {
+      font-weight: bold;
+    }
+
+    .error {
+      color: red;
+      background: #ffeeee;
+      padding: 10px;
+      margin-top: 20px;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="navbar">
+    <div><strong>🌟 CollabSpace</strong></div>
+    <div>
+      <a href="index.html">Home</a>
+      <a href="post-idea.html">Post Idea</a>
+      <a href="apply.html">Apply</a>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="chat.html">Chat</a>
+      <a href="interview.html">Interview</a>
+      <a href="history.html">History</a>
+    </div>
+  </div>
+
+  <div class="container">
+    <h2>📋 My Dashboard</h2>
+    <div id="dashboardContent">Loading...</div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBbTWt0dpw7w6mFJB2yF0olTCh2mBDwbn8",
+      authDomain: "collabspace-6d0af.firebaseapp.com",
+      projectId: "collabspace-6d0af"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const email = localStorage.getItem("email");
+    const dashboard = document.getElementById("dashboardContent");
+
+    async function loadDashboard() {
+      if (!email) {
+        dashboard.innerHTML = `<p class="error">⚠️ You must be logged in to view your dashboard.</p>`;
+        return;
+      }
+
+      dashboard.innerHTML = "🔄 Loading your projects...";
+
+      try {
+        const postedSnap = await db.collection("ideas").where("email", "==", email).get();
+        const joinedSnap = await db.collection("applications")
+          .where("email", "==", email)
+          .where("status", "==", "Accepted")
+          .get();
+
+        const joinedProjectIds = new Set();
+        joinedSnap.forEach(doc => joinedProjectIds.add(doc.data().projectId));
+
+        const allProjects = await db.collection("ideas").get();
+        dashboard.innerHTML = "";
+
+        let shownAny = false;
+
+        for (const doc of allProjects.docs) {
+          const data = doc.data();
+          const projectId = doc.id;
+          const isCreator = data.email === email;
+          const isJoined = joinedProjectIds.has(projectId);
+
+          // Only show if user is creator or joined
+          if (isCreator || isJoined) {
+            shownAny = true;
+            const box = document.createElement("div");
+            box.className = "project-box";
+            box.innerHTML = `<h3>${data.title}</h3><p>${data.description}</p>`;
+
+            // If creator, show applicants
+            if (isCreator) {
+              const appsSnap = await db.collection("applications").where("projectId", "==", projectId).get();
+
+              box.innerHTML += "<h4>Applicants:</h4>";
+              if (appsSnap.empty) {
+                box.innerHTML += `<p>No applicants yet.</p>`;
+              } else {
+                appsSnap.forEach(appDoc => {
+                  const app = appDoc.data();
+                  const appId = appDoc.id;
+
+                  const appDiv = document.createElement("div");
+                  appDiv.className = "applicant";
+                  appDiv.innerHTML = `
+                    <p><strong>Name:</strong> ${app.name}</p>
+                    <p><strong>Email:</strong> ${app.email}</p>
+                    <p><strong>Role:</strong> ${app.role}</p>
+                    <p><strong>Message:</strong> ${app.message || "—"}</p>
+                    <p class="status">Status: <span style="color:${
+                      app.status === "Accepted" ? "green" :
+                      app.status === "Rejected" ? "red" : "gray"
+                    }">${app.status || "Pending"}</span></p>
+                  `;
+
+                  if (!app.status || app.status === "Pending") {
+                    const acceptBtn = document.createElement("button");
+                    acceptBtn.className = "btn accept";
+                    acceptBtn.textContent = "Accept";
+                    acceptBtn.onclick = () => updateStatus(appId, "Accepted");
+
+                    const rejectBtn = document.createElement("button");
+                    rejectBtn.className = "btn reject";
+                    rejectBtn.textContent = "Reject";
+                    rejectBtn.onclick = () => updateStatus(appId, "Rejected");
+
+                    appDiv.appendChild(acceptBtn);
+                    appDiv.appendChild(rejectBtn);
+                  }
+
+                  box.appendChild(appDiv);
+                });
+              }
+            }
+
+            // Show view project details button
+            const viewBtn = document.createElement("a");
+            viewBtn.href = `project-details.html?id=${projectId}`;
+            viewBtn.className = "btn view";
+            viewBtn.textContent = "🔍 View Project Details";
+            box.appendChild(viewBtn);
+
+            dashboard.appendChild(box);
+          }
+        }
+
+        if (!shownAny) {
+          dashboard.innerHTML = "<p>You haven’t created or joined any projects yet.</p>";
+        }
+
+      } catch (err) {
+        console.error("❌ Error loading dashboard:", err.message);
+        dashboard.innerHTML = `<p class="error">🔥 Failed to load dashboard. Check console for details.</p>`;
+      }
+    }
+
+    async function updateStatus(appId, status) {
+      try {
+        await db.collection("applications").doc(appId).update({ status });
+        alert(`✅ Status updated to ${status}`);
+        loadDashboard(); // refresh view
+      } catch (err) {
+        console.error("❌ Error updating status:", err.message);
+        alert("Failed to update application status.");
+      }
+    }
+
+    loadDashboard();
+  </script>
+</body>
+</html>

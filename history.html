@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>History - CollabSpace</title>
+  <style>
+    body {
+  margin: 0;
+  font-family: 'Segoe UI', sans-serif;
+  background: url('https://images.unsplash.com/photo-1524985069026-dd778a71c7b4?auto=format&fit=crop&w=1950&q=80') no-repeat center center fixed;
+  background-size: cover;
+  color: #333;
+}
+
+
+    .navbar {
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
+      padding: 15px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+
+    .navbar a {
+      color: white;
+      text-decoration: none;
+      margin-left: 20px;
+      font-weight: 500;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 50px auto;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+    }
+
+    h2 {
+      text-align: center;
+    }
+
+    .history-box {
+      background: #f9f9f9;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 25px;
+      border-left: 5px solid #007bff;
+    }
+
+    .history-box h3 {
+      margin: 0 0 10px;
+      color: #007bff;
+    }
+
+    .status {
+      font-weight: bold;
+      margin-top: 10px;
+    }
+
+    .accepted { color: green; }
+    .rejected { color: red; }
+    .pending { color: orange; }
+  </style>
+</head>
+<body>
+
+  <div class="navbar">
+    <div><strong>🌟 CollabSpace</strong></div>
+    <div>
+      <a href="index.html">Home</a>
+      <a href="post-idea.html">Post Idea</a>
+      <a href="apply.html">Apply</a>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="chat.html">Chat</a>
+      <a href="interview.html">Interview</a>
+    </div>
+  </div>
+
+  <div class="container">
+    <h2>📜 Your Project History</h2>
+    <div id="historyContent">Loading...</div>
+  </div>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBbTWt0dpw7w6mFJB2yF0olTCh2mBDwbn8",
+      authDomain: "collabspace-6d0af.firebaseapp.com",
+      projectId: "collabspace-6d0af"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const email = localStorage.getItem("email") || "unknown@example.com";
+    const container = document.getElementById("historyContent");
+
+    async function loadHistory() {
+      try {
+        container.innerHTML = "";
+
+        const appsSnap = await db.collection("applications").where("email", "==", email).get();
+        const postedSnap = await db.collection("ideas").where("email", "==", email).get();
+
+        if (appsSnap.empty && postedSnap.empty) {
+          container.innerHTML = "<p>No history found.</p>";
+          return;
+        }
+
+        appsSnap.forEach(doc => {
+          const app = doc.data();
+          const statusClass = app.status === "Accepted" ? "accepted" : app.status === "Rejected" ? "rejected" : "pending";
+
+          container.innerHTML += `
+            <div class="history-box">
+              <h3>Applied to: ${app.projectId}</h3>
+              <p><strong>Role:</strong> ${app.role}</p>
+              <p><strong>Message:</strong> ${app.message || "None"}</p>
+              <p class="status ${statusClass}">Status: ${app.status}</p>
+            </div>
+          `;
+        });
+
+        postedSnap.forEach(doc => {
+          const proj = doc.data();
+          container.innerHTML += `
+            <div class="history-box">
+              <h3>You Posted: ${proj.title}</h3>
+              <p>${proj.description}</p>
+              <p class="status">Status: Posted</p>
+            </div>
+          `;
+        });
+
+      } catch (err) {
+        console.error("❌ Error loading history:", err.message);
+        container.innerHTML = "<p>Error loading history. Check console.</p>";
+      }
+    }
+
+    loadHistory();
+  </script>
+</body>
+</html>
