@@ -1,2 +1,254 @@
-Delete apply.html
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Apply - CollabSpace</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: url('https://images.unsplash.com/photo-1504384308090-c894fdcc538d') no-repeat center center fixed;
+      background-size: cover;
+    }
+    .navbar {
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
+      padding: 15px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+    .navbar a {
+      color: white;
+      text-decoration: none;
+      margin-left: 20px;
+      font-weight: 500;
+    }
+    .container {
+      max-width: 900px;
+      margin: 50px auto;
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(12px);
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+    }
+    select, input, button, textarea {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    .project-card {
+      border: 1px solid #ccc;
+      padding: 15px;
+      border-radius: 10px;
+      background: #f9f9f9;
+      margin-bottom: 20px;
+    }
+    .btn {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 10px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    #applyModal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.6);
+      justify-content: center;
+      align-items: center;
+    }
+    #applyModal .modal-box {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      width: 90%;
+      max-width: 500px;
+      position: relative;
+    }
+    #applyModal .modal-box span {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
 
+  <!-- ✅ Navbar with History & Logout -->
+  <div class="navbar">
+    <div><strong>🌟 CollabSpace</strong></div>
+    <div>
+      <a href="index.html">Home</a>
+      <a href="post-idea.html">Post Idea</a>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="chat.html">Chat</a>
+      <a href="interview.html">Interview</a>
+      <a href="history.html">History</a>
+      <a href="#" onclick="logout()">Logout</a>
+    </div>
+  </div>
+
+  <div class="container">
+    <h2>🔍 Find a Project to Join</h2>
+    <select id="userRoles" multiple size="6">
+      <option>Frontend Developer</option>
+      <option>Backend Developer</option>
+      <option>UI/UX Designer</option>
+      <option>Tester</option>
+      <option>Content Writer</option>
+      <option>Marketing</option>
+    </select>
+    <input id="customUserRole" placeholder="Other role (optional)">
+    <button class="btn" onclick="findProjects()">Search</button>
+    <div id="projectList"></div>
+  </div>
+
+  <!-- Apply Modal -->
+  <div id="applyModal">
+    <div class="modal-box">
+      <span onclick="closeModal()">×</span>
+      <h3>Apply to Project</h3>
+      <label>Select Role</label>
+      <select id="selectedRole"></select>
+      <input id="applicantName" placeholder="Your name">
+      <input id="applicantEmail" placeholder="Your email">
+      <textarea id="applicationMessage" placeholder="Message (optional)"></textarea>
+      <button class="btn" onclick="submitApplication()">Submit Application</button>
+    </div>
+  </div>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBbTWt0dpw7w6mFJB2yF0olTCh2mBDwbn8",
+      authDomain: "collabspace-6d0af.firebaseapp.com",
+      projectId: "collabspace-6d0af"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const userEmail = localStorage.getItem("email") || "unknown@example.com";
+    const userName = localStorage.getItem("username") || "Unknown User";
+
+    let selectedId = "", selectedRoles = {}, appliedProjects = {};
+
+    async function findProjects() {
+      const selected = Array.from(document.getElementById("userRoles").selectedOptions).map(o => o.value);
+      const custom = document.getElementById("customUserRole").value.trim();
+      const skills = [...selected, ...(custom ? [custom] : [])];
+
+      try {
+        const apps = await db.collection("applications").where("email", "==", userEmail).get();
+        apps.forEach(doc => appliedProjects[doc.data().projectId] = true);
+
+        const snap = await db.collection("ideas").get();
+        const projectList = document.getElementById("projectList");
+        projectList.innerHTML = "";
+
+        snap.forEach(doc => {
+          const data = doc.data();
+          const match = skills.some(skill => data.roles?.[skill] > 0);
+          const hasVacancy = Object.values(data.roles || {}).some(c => c > 0);
+          const alreadyApplied = appliedProjects[doc.id];
+
+          let roleText = Object.entries(data.roles || {}).map(r => `${r[0]}: ${r[1]}`).join(", ");
+          let buttonHTML = "";
+          if (alreadyApplied) {
+            buttonHTML = `<p><strong>Status:</strong> Already Applied</p>`;
+          } else if (!hasVacancy) {
+            buttonHTML = `<p><strong>Status:</strong> All roles filled</p>`;
+          } else {
+            buttonHTML = `<button class="btn" onclick='openApplyModal("${doc.id}", ${JSON.stringify(data.roles)})'>Apply</button>`;
+          }
+
+          if (match || skills.length === 0) {
+            projectList.innerHTML += `
+              <div class="project-card">
+                <h3>${data.title}</h3>
+                <p>${data.description}</p>
+                <p><strong>Open Roles:</strong> ${roleText}</p>
+                ${buttonHTML}
+              </div>`;
+          }
+        });
+
+        if (!projectList.innerHTML) projectList.innerHTML = "No matching projects found.";
+      } catch (err) {
+        console.error("🔥 Firestore read error:", err.message);
+      }
+    }
+
+    function openApplyModal(id, roles) {
+      selectedId = id;
+      selectedRoles = roles;
+
+      const roleSelect = document.getElementById("selectedRole");
+      roleSelect.innerHTML = "";
+      for (const r in roles) {
+        if (roles[r] > 0) {
+          roleSelect.innerHTML += `<option value="${r}">${r}</option>`;
+        }
+      }
+
+      document.getElementById("applicantName").value = userName;
+      document.getElementById("applicantEmail").value = userEmail;
+      document.getElementById("applyModal").style.display = "flex";
+    }
+
+    function closeModal() {
+      document.getElementById("applyModal").style.display = "none";
+    }
+
+    async function submitApplication() {
+      const name = document.getElementById("applicantName").value;
+      const email = document.getElementById("applicantEmail").value;
+      const message = document.getElementById("applicationMessage").value;
+      const role = document.getElementById("selectedRole").value;
+
+      if (!role) return alert("Please select a role.");
+
+      try {
+        await db.collection("applications").add({
+          projectId: selectedId,
+          name,
+          email,
+          message,
+          role,
+          status: "Pending",
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        alert("✅ Application submitted!");
+        closeModal();
+        findProjects();
+      } catch (err) {
+        console.error("❌ Application submit error:", err.message);
+        alert("Failed to submit application. Please try again.");
+      }
+    }
+
+    function logout() {
+      localStorage.clear();
+      location.href = "login.html";
+    }
+
+    findProjects();
+  </script>
+</body>
+</html>
